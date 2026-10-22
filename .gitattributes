@@ -1,0 +1,11 @@
+# 统一换行：Windows / macOS 混合协作时不产生整文件级 diff
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
