@@ -13,6 +13,8 @@ import com.campusoverflow.reputation.api.event.BountyClosedEvent;
 import com.campusoverflow.reputation.api.event.BountyOpenedEvent;
 import com.campusoverflow.shared.event.IntegrationEvent;
 import com.campusoverflow.shared.event.ProcessedEventStore;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class SearchIndexProjector {
 
     static final String CONSUMER = "discovery.search-index";
+
+    private static final Log log = LogFactory.getLog(SearchIndexProjector.class);
 
     private final SearchIndex index;
     private final ProcessedEventStore processed;
@@ -71,8 +75,12 @@ public class SearchIndexProjector {
         }
         if ("QUESTION".equals(e.targetType())) {
             index.markDeleted(e.targetId());
-        } else {
+        } else if ("ANSWER".equals(e.targetType())) {
             index.adjustAnswerCount(e.questionId(), -1, e.occurredAt());
+        } else {
+            // 显式兜底：将来新增类型（如 COMMENT）时在此暴露，而不是静默按 ANSWER 误减计数。
+            log.warn("忽略未知的 ContentDeletedEvent.targetType=" + e.targetType()
+                    + "（eventId=" + e.eventId() + "）");
         }
     }
 
@@ -87,7 +95,10 @@ public class SearchIndexProjector {
     @EventListener
     @Transactional
     public void on(VoteCastEvent e) {
-        if (firstTime(e) && "QUESTION".equals(e.targetType())) {
+        if (!firstTime(e)) {
+            return; // ANSWER 投票也会标记已处理；拆成两行，避免误读为「非 QUESTION 就不标记」
+        }
+        if ("QUESTION".equals(e.targetType())) {
             index.adjustScore(e.questionId(), e.newValue() - e.oldValue());
         }
     }
