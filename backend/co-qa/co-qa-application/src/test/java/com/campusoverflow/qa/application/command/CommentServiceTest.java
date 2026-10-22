@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -66,7 +65,6 @@ class CommentServiceTest {
     }
 
     @Test
-    @Disabled("阻塞于 ② SM：Comment.post（co-qa-domain）尚未实现；落地后移除此注解即可启用")
     @DisplayName("对回答发表评论：定位所属问题并发布事件")
     void postingOnAnswerResolvesQuestionAndPublishesEvent() {
         long id = service.post(MING, new PostCommentCommand(TargetType.ANSWER, 200L, null, "请问第二步为什么？"));
@@ -80,7 +78,6 @@ class CommentServiceTest {
     }
 
     @Test
-    @Disabled("阻塞于 ② SM：Comment.post（co-qa-domain）尚未实现；落地后移除此注解即可启用")
     @DisplayName("对问题发表评论：questionId 即目标 ID")
     void postingOnQuestionUsesQuestionId() {
         service.post(HONG, new PostCommentCommand(TargetType.QUESTION, 100L, null, "同问"));
@@ -90,7 +87,6 @@ class CommentServiceTest {
     }
 
     @Test
-    @Disabled("阻塞于 ② SM：Comment.post（co-qa-domain）尚未实现；落地后移除此注解即可启用")
     @DisplayName("回复评论：父评论存在时可正常提交")
     void replyingToExistingCommentWorks() {
         comments.save(Comment.reconstitute(50L, TargetType.ANSWER, 200L, 100L, MING.userId(), null,
