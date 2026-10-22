@@ -48,6 +48,34 @@ class DiscoveryDomainTest {
     }
 
     @Test
+    void sameJaccardScoreSortsByScoreDescending() {
+        // 回归测试：相似度相同时，score 高的必须在前（之前 Comparator.reversed() 链反转导致方向反了）
+        // ownTagCount = 3
+        // X: sharedTags=2, tagCount=3 → J = 2/(3+3-2) = 2/4 = 0.5，score=1
+        // Y: sharedTags=2, tagCount=3 → J = 0.5，score=100
+        // Z: sharedTags=2, tagCount=3 → J = 0.5，score=50
+        List<RelatedCandidate> ranked = RelatedQuestionPolicy.rank(List.of(
+                new RelatedCandidate(1, "X", 2, 3, 0, 1, false),
+                new RelatedCandidate(2, "Y", 2, 3, 0, 100, false),
+                new RelatedCandidate(3, "Z", 2, 3, 0, 50, false)
+        ), 3, 3);
+        assertThat(ranked).extracting(RelatedCandidate::questionId).containsExactly(2L, 3L, 1L);
+    }
+
+    @Test
+    void sameJaccardAndScoreSortsByAcceptedFirst() {
+        // 相似度和 score 都相同时，已采纳的在前
+        // ownTagCount = 3
+        // A: J=0.5, score=10, accepted=false
+        // B: J=0.5, score=10, accepted=true
+        List<RelatedCandidate> ranked = RelatedQuestionPolicy.rank(List.of(
+                new RelatedCandidate(1, "A", 2, 3, 0, 10, false),
+                new RelatedCandidate(2, "B", 2, 3, 0, 10, true)
+        ), 3, 2);
+        assertThat(ranked).extracting(RelatedCandidate::questionId).containsExactly(2L, 1L);
+    }
+
+    @Test
     void mentionsAreParsedDeduplicatedAndCapped() {
         assertThat(MentionParser.extract("感谢 @王老师，另外 @小明 @小明 你看看")).containsExactly("王老师", "小明");
         assertThat(MentionParser.extract("@a1 @b2 @c3 @d4 @e5 @f6")).hasSize(MentionParser.MAX_MENTIONS);
