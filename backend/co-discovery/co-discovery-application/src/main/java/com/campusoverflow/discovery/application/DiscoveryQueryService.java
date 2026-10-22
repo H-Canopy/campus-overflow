@@ -51,6 +51,12 @@ public class DiscoveryQueryService {
     }
 
     public List<RelatedQuestionView> related(long questionId, int limit) {
+        // limit 合法性校验：<= 0 直接返回空，> 20 截断到 20
+        if (limit <= 0) {
+            return List.of();
+        }
+        limit = Math.min(limit, 20);
+
         List<String> myTags = index.findTags(questionId);
         if (myTags.isEmpty()) {
             return List.of();
