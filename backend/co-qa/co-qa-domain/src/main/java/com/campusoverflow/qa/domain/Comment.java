@@ -30,8 +30,24 @@ public class Comment {
 
     public static Comment post(TargetType targetType, long targetId, long questionId, long authorId, Comment parent,
                                String body, Instant now) {
-        // TODO(S2)：实现 Comment.post——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：Comment.post 尚未实现");
+        if (targetType == null) {
+            throw new BusinessRuleException("QA-1060", "评论必须挂在问题或回答下");
+        }
+        String text = Guard.requireText(body, 1, 1000, "QA-1060", "评论内容");
+        Long parentId = null;
+        if (parent != null) {
+            if (parent.id() == null) {
+                throw new BusinessRuleException("QA-1061", "父评论尚未保存，不能回复");
+            }
+            if (parent.parentId() != null) {
+                throw new BusinessRuleException("QA-1062", "评论只支持一层回复");
+            }
+            if (parent.targetType() != targetType || parent.targetId() != targetId) {
+                throw new BusinessRuleException("QA-1063", "回复必须与父评论挂在同一条内容下");
+            }
+            parentId = parent.id();
+        }
+        return new Comment(null, targetType, targetId, questionId, authorId, parentId, text, now);
     }
 
     public static Comment reconstitute(Long id, TargetType targetType, long targetId, long questionId, long authorId,
