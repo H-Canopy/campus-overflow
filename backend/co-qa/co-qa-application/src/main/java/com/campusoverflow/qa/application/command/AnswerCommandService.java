@@ -18,6 +18,7 @@ import com.campusoverflow.shared.event.IntegrationEventPublisher;
 import com.campusoverflow.shared.security.Actor;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,11 +52,13 @@ public class AnswerCommandService {
         question.ensureOpenForAnswers();
         Instant now = clock.instant();
         Answer answer = answers.save(Answer.submit(question, actor.userId(), MarkdownBody.ofAnswer(body), now));
+        // 契约：仓储 save 必须回填 ID（后续事件与返回都要用它）；未回填时在此显式暴露，避免错误远离根因。
+        long answerId = Objects.requireNonNull(answer.id(), "answers.save 必须回填回答 ID");
         questions.adjustAnswerCount(questionId, 1);
-        events.publish(new AnswerSubmittedEvent(EventIds.next(), now, answer.id(), questionId, answer.authorId(),
+        events.publish(new AnswerSubmittedEvent(EventIds.next(), now, answerId, questionId, answer.authorId(),
                 question.authorId(), question.title().value()));
         listCache.invalidateAll();
-        return answer.id();
+        return answerId;
     }
 
     @Transactional
@@ -64,6 +67,8 @@ public class AnswerCommandService {
         Question question = loadQuestion(answer.questionId());
         answer.edit(actor, canManageCourse(actor, question), MarkdownBody.ofAnswer(body), clock.instant());
         answers.save(answer);
+        // qa-api 无 AnswerEditedEvent，除此处外没有别的失效途径，编辑后列表/详情缓存必须刷新到 TTL。
+        listCache.invalidateAll();
     }
 
     @Transactional

@@ -35,6 +35,10 @@ public class NotificationProjector {
     @EventListener
     @Transactional
     public void on(AnswerSubmittedEvent e) {
+        // 提问者回答自己的问题：不给本人推送「你的问题收到新回答」。
+        if (e.questionAuthorId() == e.answerAuthorId()) {
+            return;
+        }
         notify(e.questionAuthorId(), NotificationType.ANSWER_RECEIVED, "你的问题收到新回答",
                 link(e.questionId()), e.eventId(), e.occurredAt());
     }
@@ -58,10 +62,14 @@ public class NotificationProjector {
     public void on(CommentPostedEvent e) {
         String commenter = name(e.authorId());
         String who = commenter == null ? "有人" : commenter;
+        // MentionParser.extract 返回 LinkedHashSet（已按 @昵称去重），不会对同一人重复查询或通知。
         MentionParser.extract(e.body()).forEach(mention ->
-                identity.findByDisplayName(mention).ifPresent(user ->
+                identity.findByDisplayName(mention).ifPresent(user -> {
+                    if (user.id() != e.authorId()) { // 评论 @ 到自己不推送
                         notify(user.id(), NotificationType.MENTIONED, who + " 在评论中提到了你",
-                                link(e.questionId()), e.eventId(), e.occurredAt())));
+                                link(e.questionId()), e.eventId(), e.occurredAt());
+                    }
+                }));
     }
 
     @EventListener
