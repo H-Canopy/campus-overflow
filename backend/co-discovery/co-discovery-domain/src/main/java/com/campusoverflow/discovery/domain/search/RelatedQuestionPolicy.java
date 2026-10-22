@@ -27,10 +27,10 @@ public final class RelatedQuestionPolicy {
                         // 先按 Jaccard 相似度降序
                         .comparingDouble((SearchIndex.RelatedCandidate c) ->
                                 jaccard(c.sharedTags(), ownTagCount, c.tagCount())).reversed()
-                        // 相似度相同，得分高的优先
-                        .thenComparingInt(SearchIndex.RelatedCandidate::score).reversed()
-                        // 再相同，已采纳的优先
-                        .thenComparing(SearchIndex.RelatedCandidate::accepted).reversed())
+                        // 相似度相同，得分高的优先（单独反转这一键）
+                        .thenComparing(Comparator.comparingInt(SearchIndex.RelatedCandidate::score).reversed())
+                        // 再相同，已采纳的优先（单独反转这一键）
+                        .thenComparing(Comparator.comparing(SearchIndex.RelatedCandidate::accepted).reversed()))
                 .limit(limit)
                 .toList();
     }
