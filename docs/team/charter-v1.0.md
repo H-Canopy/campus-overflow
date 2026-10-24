@@ -43,7 +43,7 @@
 | 成员 | 签名（同意本章程） |
 |---|---|
 | ① huangjiasheng567 | ✅ huangjiasheng567 |
-| ② H-Canopy | ☐ |
-| ③ xing-ding | ☐ |
+| ② H-Canopy | ✅ H-Canopy |
+| ③ xing-ding | ✅ xing-ding |
 | ④ Twh743 | ☐ |
 | ⑤ 1311948 | ☐ |
