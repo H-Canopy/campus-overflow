@@ -54,10 +54,11 @@ class DiscoveryDomainTest {
         // X: sharedTags=2, tagCount=3 → J = 2/(3+3-2) = 2/4 = 0.5，score=1
         // Y: sharedTags=2, tagCount=3 → J = 0.5，score=100
         // Z: sharedTags=2, tagCount=3 → J = 0.5，score=50
+        // RelatedCandidate 签名：(questionId, title, sharedTags, tagCount, score, answerCount, accepted)
         List<RelatedCandidate> ranked = RelatedQuestionPolicy.rank(List.of(
-                new RelatedCandidate(1, "X", 2, 3, 0, 1, false),
-                new RelatedCandidate(2, "Y", 2, 3, 0, 100, false),
-                new RelatedCandidate(3, "Z", 2, 3, 0, 50, false)
+                new RelatedCandidate(1, "X", 2, 3, 1, 0, false),
+                new RelatedCandidate(2, "Y", 2, 3, 100, 0, false),
+                new RelatedCandidate(3, "Z", 2, 3, 50, 0, false)
         ), 3, 3);
         assertThat(ranked).extracting(RelatedCandidate::questionId).containsExactly(2L, 3L, 1L);
     }
@@ -69,8 +70,8 @@ class DiscoveryDomainTest {
         // A: J=0.5, score=10, accepted=false
         // B: J=0.5, score=10, accepted=true
         List<RelatedCandidate> ranked = RelatedQuestionPolicy.rank(List.of(
-                new RelatedCandidate(1, "A", 2, 3, 0, 10, false),
-                new RelatedCandidate(2, "B", 2, 3, 0, 10, true)
+                new RelatedCandidate(1, "A", 2, 3, 10, 0, false),
+                new RelatedCandidate(2, "B", 2, 3, 10, 0, true)
         ), 3, 2);
         assertThat(ranked).extracting(RelatedCandidate::questionId).containsExactly(2L, 1L);
     }
