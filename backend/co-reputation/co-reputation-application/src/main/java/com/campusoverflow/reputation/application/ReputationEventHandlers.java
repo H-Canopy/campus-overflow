@@ -13,6 +13,7 @@ import com.campusoverflow.reputation.domain.ReputationAccountRepository;
 import com.campusoverflow.reputation.domain.ReputationReason;
 import com.campusoverflow.reputation.domain.ReputationRulebook;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import org.springframework.context.event.EventListener;
@@ -47,36 +48,80 @@ public class ReputationEventHandlers {
     @EventListener
     @Transactional
     public void on(UserRegisteredEvent e) {
-        // TODO(S3)：实现 ReputationEventHandlers.on——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：ReputationEventHandlers.on 尚未实现");
+        // 开立声誉账户并发放初始悬赏积分（教师 1000，学生 0）
+        if (accounts.findByUserId(e.userId()).isPresent()) {
+            return;
+        }
+        ReputationAccount account = ReputationAccount.open(e.userId(),
+                ReputationRulebook.initialPoints(e.role()));
+        accounts.save(account);
     }
 
     /** 场景 R-2 的异步后半段：采纳 → 回答者 +15 → 徽章 → 悬赏结算。 */
     @EventListener
     @Transactional
     public void on(AnswerAcceptedEvent e) {
-        // TODO(S3)：实现 ReputationEventHandlers.on——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：ReputationEventHandlers.on 尚未实现");
+        int delta = ReputationRulebook.acceptedDelta(e.answerAuthorId(), e.questionAuthorId());
+        if (delta != 0) {
+            ledgerService.record(e.answerAuthorId(), e.eventId(), ReputationReason.ANSWER_ACCEPTED, delta, "ANSWER",
+                    e.answerId());
+        }
+        // 采纳次数徽章：账本中 ANSWER_ACCEPTED 流水的条数即为被采纳次数（每次采纳记一笔）
+        long acceptedCount = ledger.countByUserAndReason(e.answerAuthorId(),
+                ReputationReason.ANSWER_ACCEPTED);
+        BadgePolicy.forAcceptedCount(acceptedCount).forEach(badge -> badges.grant(e.answerAuthorId(), badge));
+
+        // 悬赏结算：问题采纳后，悬赏积分转给回答者
+        bounties.settleOnAccept(e.questionId(), e.answerId(), e.answerAuthorId(), e.eventId());
     }
 
     @EventListener
     @Transactional
     public void on(VoteCastEvent e) {
-        // TODO(S3)：实现 ReputationEventHandlers.on——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：ReputationEventHandlers.on 尚未实现");
+        // 增量 = 新效果 − 旧效果（撤销与改投都能正确处理）
+        int delta = ReputationRulebook.voteDelta(e.oldValue(), e.newValue());
+        if (delta == 0) {
+            return;
+        }
+        // 自问自答不加分
+        if (e.voterId() == e.targetAuthorId()) {
+            return;
+        }
+
+        ReputationReason reason = "QUESTION".equals(e.targetType())
+                ? ReputationReason.QUESTION_VOTE
+                : ReputationReason.ANSWER_VOTE;
+
+        int applied = delta;
+        if (delta > 0) {
+            // 反作弊：每人每自然日（UTC）因被投票获得的正向声誉上限
+            int gainedToday = ledger.sumPositiveVoteDeltaSince(e.targetAuthorId(), startOfUtcDay());
+            applied = ReputationRulebook.applyDailyCap(delta, gainedToday);
+        }
+        if (applied == 0) {
+            return;
+        }
+        ledgerService.record(e.targetAuthorId(), e.eventId(), reason, applied, e.targetType(), e.targetId());
     }
 
     @EventListener
     @Transactional
     public void on(AnswerSubmittedEvent e) {
-        // TODO(S3)：实现 ReputationEventHandlers.on——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：ReputationEventHandlers.on 尚未实现");
+        // 「初来乍到」徽章：提交过回答即授予。grant 自身幂等（已拥有则忽略），重复事件不会重复授予。
+        badges.grant(e.answerAuthorId(), BadgeType.FIRST_ANSWER);
     }
 
     @EventListener
     @Transactional
     public void on(AnswerEndorsedEvent e) {
-        // TODO(S3)：实现 ReputationEventHandlers.on——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：ReputationEventHandlers.on 尚未实现");
+        // 教师认证徽章：仅认证者本人不可自证
+        if (e.endorserId() != e.answerAuthorId()) {
+            badges.grant(e.answerAuthorId(), BadgeType.TEACHER_ENDORSED);
+        }
+    }
+
+    /** UTC 自然日零点：每日上限的统计起点。 */
+    private Instant startOfUtcDay() {
+        return LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC).atStartOfDay(ZoneOffset.UTC).toInstant();
     }
 }

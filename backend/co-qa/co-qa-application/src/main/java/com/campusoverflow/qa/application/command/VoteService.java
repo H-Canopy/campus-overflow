@@ -14,6 +14,7 @@ import com.campusoverflow.shared.event.EventIds;
 import com.campusoverflow.shared.event.IntegrationEventPublisher;
 import com.campusoverflow.shared.security.Actor;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,12 +49,70 @@ public class VoteService {
 
     @Transactional
     public VoteResult cast(Actor actor, TargetType type, long targetId, int value) {
-        // TODO(S2)：实现 VoteService.cast——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：VoteService.cast 尚未实现");
+        Target target = resolve(type, targetId);
+        if (actor.userId() == target.authorId()) {
+            throw new BusinessRuleException("QA-1015", "不能给自己的内容投票");
+        }
+
+        Instant now = clock.instant();
+        Optional<Vote> existing = votes.find(actor.userId(), type, targetId);
+        int oldValue = existing.map(Vote::value).orElse(0);
+
+        if (value == 0) {
+            // 撤销：删除投票记录，得分回退旧值
+            if (existing.isEmpty()) {
+                return new VoteResult(0, 0);
+            }
+            votes.delete(existing.get());
+            adjustScore(type, targetId, -oldValue);
+            publishVoteEvent(type, targetId, target, actor.userId(), target.questionId(), oldValue, 0, now);
+            return new VoteResult(0, -oldValue);
+        }
+
+        if (existing.isPresent()) {
+            int previous = existing.get().change(value, now);
+            if (previous == value) {
+                // 幂等：重复投同一票不产生任何变更
+                return new VoteResult(value, 0);
+            }
+            votes.save(existing.get());
+            int delta = value - previous;
+            adjustScore(type, targetId, delta);
+            publishVoteEvent(type, targetId, target, actor.userId(), target.questionId(), previous, value, now);
+            return new VoteResult(value, delta);
+        }
+
+        Vote vote = Vote.cast(actor.userId(), target.authorId(), type, targetId, value, now);
+        votes.save(vote);
+        adjustScore(type, targetId, value);
+        publishVoteEvent(type, targetId, target, actor.userId(), target.questionId(), 0, value, now);
+        return new VoteResult(value, value);
     }
 
+    /** 解析被投票对象：返回作者 ID 与所属问题 ID（供事件消费者计算声誉）。 */
     private Target resolve(TargetType type, long targetId) {
-        // TODO(S2)：实现 VoteService.resolve——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：VoteService.resolve 尚未实现");
+        if (type == TargetType.QUESTION) {
+            Question question = questions.findById(targetId)
+                    .orElseThrow(() -> new NotFoundException("QA-4001", "问题不存在"));
+            return new Target(question.authorId(), question.id());
+        }
+        Answer answer = answers.findById(targetId)
+                .orElseThrow(() -> new NotFoundException("QA-4002", "回答不存在"));
+        return new Target(answer.authorId(), answer.questionId());
+    }
+
+    /** 得分由仓储以原子 SQL 维护，避免读-改-写覆盖并发增量（ADR-008）。 */
+    private void adjustScore(TargetType type, long targetId, int delta) {
+        if (type == TargetType.QUESTION) {
+            questions.adjustScore(targetId, delta);
+        } else {
+            answers.adjustScore(targetId, delta);
+        }
+    }
+
+    private void publishVoteEvent(TargetType type, long targetId, Target target, long voterId, long questionId,
+                                  int oldValue, int newValue, Instant now) {
+        events.publish(new VoteCastEvent(EventIds.next(), now, type.name(), targetId, target.authorId(), voterId,
+                questionId, oldValue, newValue));
     }
 }
