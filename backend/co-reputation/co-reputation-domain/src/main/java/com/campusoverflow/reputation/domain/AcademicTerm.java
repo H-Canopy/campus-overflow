@@ -15,18 +15,37 @@ public final class AcademicTerm {
     private AcademicTerm() {
     }
 
+    /** 2–7 月 = 当年春季；8–12 月与次年 1 月 = 当年秋季（1 月归上一年的秋季）。 */
     public static String termKey(Instant at) {
-        // TODO(S3)：实现 AcademicTerm.termKey——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：AcademicTerm.termKey 尚未实现");
+        LocalDate date = toCampusDate(at);
+        int year = date.getYear();
+        int month = date.getMonthValue();
+        if (month == 1) {
+            return (year - 1) + "-FALL";
+        }
+        if (month <= 7) {
+            return year + "-SPRING";
+        }
+        return year + "-FALL";
     }
 
+    /** ISO 周编号，跨年周归属 ISO 的周所属年，格式 2026-W41。 */
     public static String weekKey(Instant at) {
-        // TODO(S3)：实现 AcademicTerm.weekKey——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：AcademicTerm.weekKey 尚未实现");
+        LocalDate date = toCampusDate(at);
+        int weekYear = date.get(IsoFields.WEEK_BASED_YEAR);
+        int week = date.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+        return String.format("%d-W%02d", weekYear, week);
     }
 
     public static String monthKey(Instant at) {
-        // TODO(S3)：实现 AcademicTerm.monthKey——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：AcademicTerm.monthKey 尚未实现");
+        LocalDate date = toCampusDate(at);
+        return String.format("%d-%02d", date.getYear(), date.getMonthValue());
+    }
+
+    private static LocalDate toCampusDate(Instant at) {
+        if (at == null) {
+            throw new IllegalArgumentException("时间不能为空");
+        }
+        return at.atZone(CAMPUS_ZONE).toLocalDate();
     }
 }
