@@ -12,12 +12,12 @@ flowchart LR
     C --> D[回答]
     D --> E[互动]
     E --> F[成长]
-    style A fill:#dbeafe
-    style B fill:#dbeafe
-    style C fill:#dbeafe
-    style D fill:#fef3c7
-    style E fill:#fef3c7
-    style F fill:#fce7f3
+    style A fill:#dbeafe,color:#1f2328
+    style B fill:#dbeafe,color:#1f2328
+    style C fill:#dbeafe,color:#1f2328
+    style D fill:#fef3c7,color:#1f2328
+    style E fill:#fef3c7,color:#1f2328
+    style F fill:#fce7f3,color:#1f2328
 ```
 
 蓝 = Sprint 1 的 MVP 切片，黄 = Sprint 2，粉 = Sprint 3。
