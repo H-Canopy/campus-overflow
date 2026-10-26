@@ -7,6 +7,7 @@ import com.campusoverflow.reputation.domain.BadgeType;
 import com.campusoverflow.shared.event.EventIds;
 import com.campusoverflow.shared.event.IntegrationEventPublisher;
 import java.time.Clock;
+import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +32,7 @@ public class BadgeService {
         if (badges.has(userId, type)) {
             return;
         }
-        Instant now = java.time.Instant.now(clock);
+        Instant now = Instant.now(clock);
         // 授予徽章
         badges.award(new BadgeAward(userId, type, now));
         // 发事件
