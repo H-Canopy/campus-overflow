@@ -5,7 +5,7 @@
 
 ## 走骨架（Walking Skeleton）
 
-~~~mermaid
+```mermaid
 flowchart LR
     A[注册/登录] --> B[浏览与搜索]
     B --> C[提问]
@@ -18,7 +18,7 @@ flowchart LR
     style D fill:#fef3c7
     style E fill:#fef3c7
     style F fill:#fce7f3
-~~~
+```
 
 蓝 = Sprint 1 的 MVP 切片，黄 = Sprint 2，粉 = Sprint 3。
 

@@ -95,7 +95,7 @@
 
 ## 聚合之间的关系
 
-~~~mermaid
+```mermaid
 flowchart LR
     Q[Question] -- questionId --> A[Answer]
     Q -- questionId --> C[Comment]
@@ -108,6 +108,6 @@ flowchart LR
     B -- 结算 --> R
     A -- 事件 --> N[Notification]
     Q -- 事件 --> N
-~~~
+```
 
 **注意**：箭头不代表对象引用，只表示"通过 id 或事件发生关系"。Question 与 Answer 之间是双向 id 引用，但**没有任何一个事务同时修改两者**。

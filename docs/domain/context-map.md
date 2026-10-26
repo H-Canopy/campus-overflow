@@ -4,7 +4,7 @@
 
 ## 上下文划分
 
-~~~mermaid
+```mermaid
 flowchart TB
     subgraph Core["核心子域"]
         QA["Q&A 问答<br/>Question / Answer / Vote / Comment"]
@@ -32,7 +32,7 @@ flowchart TB
     BS -. "装配所有上下文" .-> REP
     BS -. "装配所有上下文" .-> ID
     BS -. "装配所有上下文" .-> DIS
-~~~
+```
 
 实线 = 领域事件（异步、经发件箱），虚线 = 同步查询（只读 api 接口）。
 
