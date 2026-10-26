@@ -30,8 +30,10 @@ jobs:
         run: mvn -B -f backend/pom.xml test
 
       # 阶段 3：架构适应度函数（ArchUnit：FF-1~FF-6）
+      # 必须带 -am：本 job 之前的步骤只跑 test、没有 install，
+      # 单独 -pl co-bootstrap 时兄弟模块的 SNAPSHOT jar 不在本地仓库，会解析失败。
       - name: 架构约束检查
-        run: mvn -B -f backend/pom.xml test -pl co-bootstrap -Dtest=ArchitectureTest -DfailIfNoTests=false
+        run: mvn -B -f backend/pom.xml test -pl co-bootstrap -am -Dtest=ArchitectureTest -Dsurefire.failIfNoSpecifiedTests=false
 
       # 阶段 4：领域层覆盖率门禁（低于阈值直接失败）
       - name: 覆盖率门禁
