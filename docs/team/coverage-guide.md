@@ -60,26 +60,34 @@ mvn -pl co-qa/co-qa-domain jacoco:report
 
 > ⚠️ **红线**：只许往上提，不许为了"通过检查"往下调。分工方案第 78 行明确写了这一条。
 
-## 5. 当前基线（W7 末实测）
+## 5. 当前基线（2026-10-26 实测，门禁已提到 0.70）
 
-命令：`mvn -pl <四个领域模块> -am test -Dmaven.test.failure.ignore=true` + `jacoco:report`
+命令：`mvn -f backend/pom.xml verify -DskipITs -Djacoco.skip=false`
 
 | 领域模块 | 行覆盖 | 状态 |
 |---|---|---|
-| co-identity-domain | 103 / 136　**75.7%** | ✅ 已过 70% |
-| co-discovery-domain | 44 / 80　**55.0%** | ⚠️ 差 15 个点 |
-| co-qa-domain | 43 / 154　**27.9%** | ❌ 差 42 个点 |
-| co-reputation-domain | 9 / 96　**9.4%** | ❌ 差 61 个点 |
-| **合计** | **199 / 466　42.7%** | 距 70% 差 27.3 个点 |
+| co-qa-domain | 178 / 221　**80.5%** | ✅ |
+| co-discovery-domain | 66 / 83　**79.5%** | ✅ |
+| co-identity-domain | 103 / 136　**75.7%** | ✅ |
+| co-reputation-domain | 116 / 160　**72.5%** | ✅ |
+| **合计** | **463 / 600　77.2%** | ✅ 四个模块全部达标 |
 
-**门槛为什么现在还不能提到 0.70**：门禁是**逐模块**判定的，只要 `co-reputation-domain` 是 9.4%，一提阈值全组 CI 立刻变红——而且不是谁写错了，是 ① 的领域方法还没落地。所以提升门槛必须排在领域层补完之后。
+`jacoco:check` 在四个领域模块上均输出 `All coverage checks have been met.`，`mvn verify` BUILD SUCCESS。
 
-## 6. 提门槛的执行顺序（W13）
+> 历史基线（W7 末，仅存对照）：199/466 = 42.7%，当时 `co-reputation-domain` 只有 9.4%，
+> 因为领域方法还是 `UnsupportedOperationException`，红色行统计不到真实逻辑。
+> 等领域层补齐后覆盖率自然上升——**这次提升没有新写一行测试**，纯粹是"代码有了实现"。
 
-1. ① 补完 `ReputationAccount` / `ReputationRulebook` / `AcademicTerm` / `Bounty`，④ 补完 `BadgePolicy`，② 补完 `Comment` / `Tags` / `RelatedQuestionPolicy`
-2. 跑一遍第 5 节的命令，确认**每个模块**都 ≥ 0.70
-3. 改 `backend/pom.xml` 的 `domain.coverage.minimum` 为 `0.70`
-4. `mvn verify` 全绿 → 单独提一个 `chore:` PR，只改这一行
+## 6. 提门槛的执行顺序（已于 2026-10-26 完成）
+
+1. ~~① 补完 `ReputationAccount` / `ReputationRulebook` / `AcademicTerm` / `Bounty`，④ 补完 `BadgePolicy`，② 补完 `Comment` / `Tags` / `RelatedQuestionPolicy`~~
+   —— 已全部完成，`git grep 'UnsupportedOperationException("TODO'` 在 main 上为 **0**。
+2. ~~跑一遍第 5 节的命令，确认**每个模块**都 ≥ 0.70~~ —— 四个模块 72.5%–80.5%，全部达标。
+3. ✅ `backend/pom.xml` 的 `domain.coverage.minimum` 已由 `0` 改为 `0.70`。
+4. ✅ `mvn verify` 全绿，改动单独提 `chore:` PR。
+
+**之后任何一次提交如果让某个领域模块掉到 70% 以下，CI 会直接失败。** 这是有意的：
+新增领域逻辑必须带测试，不然门禁形同虚设。
 
 ## 7. 覆盖率低时先看哪里
 
