@@ -58,7 +58,8 @@ public class QuestionRepositoryAdapter implements QuestionRepository {
 
     static Question toDomain(QuestionJpaEntity e) {
         return Question.reconstitute(e.getId(), e.getAuthorId(), e.getCourseId(), new Title(e.getTitle()),
-                new MarkdownBody(e.getBody()), Tags.of(List.copyOf(e.getTags())), e.getAcceptedAnswerId(), e.getScore(),
+                new MarkdownBody(e.getBody()), Tags.reconstitute(List.copyOf(e.getTags())),
+                e.getAcceptedAnswerId(), e.getScore(),
                 e.getAnswerCount(), e.getViewCount(), e.getCreatedAt(), e.getUpdatedAt(), e.getDeletedAt(),
                 e.getVersion());
     }
