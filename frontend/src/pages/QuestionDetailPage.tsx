@@ -4,6 +4,9 @@ import { api } from '../api'
 import { useAuth } from '../auth-context'
 import type { QuestionDetail } from '../types'
 
+/** 悬赏默认天数。领域规则允许 1–14，界面暂不提供选择，先固定 7 天。 */
+const DEFAULT_BOUNTY_DAYS = 7
+
 export function QuestionDetailPage() {
   const { id } = useParams()
   const questionId = Number(id)
@@ -12,11 +15,15 @@ export function QuestionDetailPage() {
   const [related, setRelated] = useState<{ id: number; title: string }[]>([])
   const [draft, setDraft] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const load = useCallback(() => {
     api
       .question(questionId)
-      .then(setQ)
+      .then((r) => {
+        setQ(r)
+        setError('')
+      })
       .catch((e) => setError(e.message))
   }, [questionId])
 
@@ -28,12 +35,28 @@ export function QuestionDetailPage() {
       .catch(() => undefined)
   }, [load, questionId])
 
-  const act = (fn: () => Promise<unknown>) =>
-    fn()
-      .then(load)
-      .catch((e) => setError(e.message))
+  // 请求期间置 busy，按钮 disabled，避免连点发出重复请求
+  const act = useCallback(
+    (fn: () => Promise<unknown>) => {
+      setBusy(true)
+      return fn()
+        .then(load)
+        .catch((e) => setError(e.message))
+        .finally(() => setBusy(false))
+    },
+    [load],
+  )
 
-  if (!q) return <p className="muted">{error || '加载中…'}</p>
+  if (error && !q)
+    return (
+      <div>
+        <p className="error">{error}</p>
+        <button className="primary" onClick={load}>
+          重试
+        </button>
+      </div>
+    )
+  if (!q) return <p className="muted">加载中…</p>
 
   const canManage = q.permissions.canManage
 
@@ -87,9 +110,12 @@ export function QuestionDetailPage() {
             {canManage && (
               <button
                 className="link"
+                disabled={busy}
                 onClick={() => {
                   const points = Number(prompt('悬赏积分（10–500）', '50'))
-                  if (points) act(() => api.bounty(q.id, points, 7))
+                  if (points) {
+                    act(() => api.bounty(q.id, points, DEFAULT_BOUNTY_DAYS))
+                  }
                 }}
               >
                 发起悬赏
@@ -107,7 +133,7 @@ export function QuestionDetailPage() {
           >
             <div className="votebox">
               <button
-                disabled={!me}
+                disabled={!me || busy}
                 onClick={() =>
                   act(() => api.vote('ANSWER', a.id, a.myVote === 1 ? 0 : 1))
                 }
@@ -116,7 +142,7 @@ export function QuestionDetailPage() {
               </button>
               <b>{a.score}</b>
               <button
-                disabled={!me}
+                disabled={!me || busy}
                 onClick={() =>
                   act(() => api.vote('ANSWER', a.id, a.myVote === -1 ? 0 : -1))
                 }
@@ -142,12 +168,18 @@ export function QuestionDetailPage() {
               </p>
               <div className="actions">
                 {q.permissions.canAccept && !q.acceptedAnswerId && (
-                  <button onClick={() => act(() => api.accept(q.id, a.id))}>
+                  <button
+                    disabled={busy}
+                    onClick={() => act(() => api.accept(q.id, a.id))}
+                  >
                     采纳此回答
                   </button>
                 )}
                 {canManage && !a.endorsedBy && (
-                  <button onClick={() => act(() => api.endorse(a.id))}>
+                  <button
+                    disabled={busy}
+                    onClick={() => act(() => api.endorse(a.id))}
+                  >
                     教师认证
                   </button>
                 )}

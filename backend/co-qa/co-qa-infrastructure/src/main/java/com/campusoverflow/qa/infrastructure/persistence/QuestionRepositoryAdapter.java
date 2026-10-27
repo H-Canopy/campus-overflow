@@ -7,6 +7,8 @@ import com.campusoverflow.qa.domain.Tags;
 import com.campusoverflow.qa.domain.Title;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -15,6 +17,8 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public class QuestionRepositoryAdapter implements QuestionRepository {
+
+    private static final Logger log = LoggerFactory.getLogger(QuestionRepositoryAdapter.class);
 
     private final QuestionJpaRepository jpa;
 
@@ -57,9 +61,13 @@ public class QuestionRepositoryAdapter implements QuestionRepository {
     }
 
     static Question toDomain(QuestionJpaEntity e) {
+        List<String> tagNames = List.copyOf(e.getTags());
+        if (tagNames.isEmpty()) {
+            // 历史脏数据（qa_question_tag 缺行）：不阻断加载，但必须留下痕迹，便于统计和清理
+            log.warn("问题 {} 没有标签，疑似历史脏数据，已按空标签重建", e.getId());
+        }
         return Question.reconstitute(e.getId(), e.getAuthorId(), e.getCourseId(), new Title(e.getTitle()),
-                new MarkdownBody(e.getBody()), Tags.reconstitute(List.copyOf(e.getTags())),
-                e.getAcceptedAnswerId(), e.getScore(),
+                new MarkdownBody(e.getBody()), Tags.reconstitute(tagNames), e.getAcceptedAnswerId(), e.getScore(),
                 e.getAnswerCount(), e.getViewCount(), e.getCreatedAt(), e.getUpdatedAt(), e.getDeletedAt(),
                 e.getVersion());
     }

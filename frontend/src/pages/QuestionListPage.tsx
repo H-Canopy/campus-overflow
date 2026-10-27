@@ -25,19 +25,35 @@ export function QuestionListPage() {
       .catch(() => undefined)
   }, [])
 
+  // 搜索防抖：停止输入 300ms 后才发请求，避免每敲一个字符打一次接口
+  const [debouncedKeyword, setDebouncedKeyword] = useState('')
+
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedKeyword(keyword.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [keyword])
+
+  useEffect(() => {
+    // cancelled 用来丢弃过期响应：旧请求晚回来时不再覆盖新结果
+    let cancelled = false
     const searching =
-      keyword.trim() !== '' || activeTag || unanswered || sort !== 'newest'
+      debouncedKeyword !== '' || activeTag || unanswered || sort !== 'newest'
     const promise = searching
-      ? api.search(keyword.trim(), { tag: activeTag, sort, unanswered })
+      ? api.search(debouncedKeyword, { tag: activeTag, sort, unanswered })
       : api.questions(1)
     promise
       .then((r) => {
+        if (cancelled) return
         setData(r)
         setError('')
       })
-      .catch((e) => setError(e.message))
-  }, [keyword, activeTag, sort, unanswered])
+      .catch((e) => {
+        if (!cancelled) setError(e.message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [debouncedKeyword, activeTag, sort, unanswered])
 
   return (
     <div className="layout">
