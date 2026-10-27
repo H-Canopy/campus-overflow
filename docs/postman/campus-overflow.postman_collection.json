@@ -1,0 +1,191 @@
+{
+  "info": {
+    "_postman_id": "b7d1f0a2-4c1e-4a86-9f2e-1b7c9d3a5e10",
+    "name": "CampusOverflow API",
+    "description": "校园问答平台接口集合（Lab 4-4 交付物）。\n\n## 运行顺序\n在 Collection Runner 里按「01 认证 → 02 问答」顺序跑一遍即可：\n1. `GET /api/v1/auth/csrf` —— 取双提交用的 CSRF Cookie，并把原始 token 存进变量 `xsrf`\n2. `POST /api/v1/auth/login` —— 登录（请求头带 `X-XSRF-TOKEN`）\n3. `POST /api/v1/questions` —— 发布问题，断言 201 并保存 `questionId`\n4. `GET /api/v1/questions` —— 断言新问题排在列表第一条\n5. `GET /api/v1/questions/{id}` —— 断言详情内容与提交一致\n\n## 关于 CSRF\n后端是 `CookieCsrfTokenRepository` 双提交：Cookie `XSRF-TOKEN` 存**原始** token，\n而 `/api/v1/auth/csrf` 的 JSON 返回的是**加了 XOR 掩码**的版本，两者不相等。\n所以请求头必须用 Cookie 里的值（脚本里 `pm.cookies.get('XSRF-TOKEN')`），直接用 JSON 里的会 403。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 认证",
+      "item": [
+        {
+          "name": "GET 取 CSRF Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const token = pm.cookies.get('XSRF-TOKEN');",
+                  "pm.test('拿到 XSRF-TOKEN Cookie', () => pm.expect(token).to.be.a('string'));",
+                  "",
+                  "// 用 Cookie 里的原始 token，而不是响应 JSON 里的掩码版本",
+                  "pm.collectionVariables.set('xsrf', token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/csrf",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "csrf"]
+            },
+            "description": "拿 CSRF Cookie，同时把原始 token 写进集合变量 `xsrf`。"
+          }
+        },
+        {
+          "name": "POST 登录",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码 200', () => pm.response.to.have.status(200));",
+                  "const me = pm.response.json();",
+                  "pm.test('返回了当前用户', () => pm.expect(me.username).to.eql(pm.collectionVariables.get('username')));",
+                  "console.log('登录用户:', me.displayName);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{xsrf}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "建立会话；后续请求靠 SESSION Cookie 鉴权。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 问答",
+      "item": [
+        {
+          "name": "POST 发布问题",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码 201 Created', () => pm.response.to.have.status(201));",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('返回了问题 id', () => pm.expect(body.id).to.be.a('number'));",
+                  "",
+                  "pm.collectionVariables.set('questionId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-XSRF-TOKEN", "value": "{{xsrf}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"测试问题 {{$timestamp}}\",\n  \"body\": \"这是端到端测试，验证前后端数据库链路连通。请求由 Postman Collection 自动发出，用于 L4-04 验收。\",\n  \"tags\": [\"测试\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions"]
+            },
+            "description": "发布问题的核心接口。验收要求同一张图里能看到 URL、请求体、201 状态码和响应 JSON。"
+          }
+        },
+        {
+          "name": "GET 问题列表（断言置顶）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const page = pm.response.json();",
+                  "pm.test('列表至少 5 条', () => pm.expect(page.items.length).to.be.at.least(5));",
+                  "",
+                  "const newest = page.items[0];",
+                  "const created = pm.collectionVariables.get('questionId');",
+                  "pm.test('新问题排在列表最上方', () => pm.expect(newest.id).to.eql(created));",
+                  "",
+                  "pm.test('新问题标签正确', () => pm.expect(newest.tags).to.include('测试'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions?page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions"],
+              "query": [{ "key": "page", "value": "1" }]
+            },
+            "description": "验证写入之后列表能读回来，且新问题在第一条。"
+          }
+        },
+        {
+          "name": "GET 问题详情",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const q = pm.response.json();",
+                  "pm.test('标题与提交一致', () => pm.expect(q.title).to.include('测试问题'));",
+                  "pm.test('正文已落库', () => pm.expect(q.body).to.include('端到端测试'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/questions/{{questionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "questions", "{{questionId}}"]
+            },
+            "description": "刷新后内容仍在的接口级证据：换一个请求重新读详情。"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "username", "value": "20240099" },
+    { "key": "password", "value": "abc123456" },
+    { "key": "xsrf", "value": "" },
+    { "key": "questionId", "value": "" }
+  ]
+}
